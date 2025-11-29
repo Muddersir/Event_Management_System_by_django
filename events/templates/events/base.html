@@ -1,0 +1,44 @@
+
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Event Manager</title>
+  <!-- Tailwind CDN for quick setup -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body class="bg-gray-70 text-gray-800">
+ <nav class="bg-white shadow">
+  <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+
+    <a href="{% url 'events:event_list' %}" class="text-2xl font-bold text-gray-900 hover:text-blue-900">
+      Event Manager
+    </a>
+
+    <div class="space-x-6">
+
+      <a href="{% url 'events:event_list' %}" class="text-blue-600 hover:text-blue-800">Events</a>
+
+      <a href="{% url 'events:participant_list' %}" class="text-blue-600 hover:text-blue-800">Participants</a>
+
+      <a href="{% url 'events:category_list' %}" class="text-blue-600 hover:text-blue-800">Categories</a>
+
+      <a href="{% url 'events:dashboard' %}" class="text-blue-600 hover:text-blue-800">Dashboard</a>
+
+    </div>
+  </div>
+</nav>
+
+
+  <main class="container mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="text-center py-6 text-sm text-gray-500">
+    Event Management System • Built with Django & Tailwind
+  </footer>
+</body>
+</html>

@@ -1,0 +1,13 @@
+
+{% extends "events/base.html" %}
+{% block content %}
+<div class="bg-white p-6 rounded shadow max-w-lg mx-auto">
+  <h1 class="text-xl font-semibold mb-4">Delete Category</h1>
+  <p>Are you sure you want to delete "<strong>{{ object.name }}</strong>"? This will not delete linked events but will set their category to null.</p>
+  <form method="post" class="mt-4">
+    {% csrf_token %}
+    <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded">Yes, delete</button>
+    <a href="{% url 'events:category_list' %}" class="ml-2 text-gray-600">Cancel</a>
+  </form>
+</div>
+{% endblock %}

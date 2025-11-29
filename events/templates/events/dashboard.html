@@ -1,0 +1,79 @@
+
+{% extends "events/base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Organizer Dashboard</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white p-4 rounded shadow cursor-pointer stat-card" data-type="all">
+    <div class="text-sm text-gray-500">Total Participants</div>
+    <div class="text-2xl font-bold">{{ total_unique_participants }}</div>
+  </div>
+
+  <div class="bg-white p-4 rounded shadow cursor-pointer stat-card" data-type="all-events">
+    <div class="text-sm text-gray-500">Total Events</div>
+    <div class="text-2xl font-bold" id="total-events">{{ total_events }}</div>
+  </div>
+
+  <div class="bg-white p-4 rounded shadow cursor-pointer stat-card" data-type="upcoming">
+    <div class="text-sm text-gray-500">Upcoming Events</div>
+    <div class="text-2xl font-bold" id="upcoming-events">{{ upcoming_events_count }}</div>
+  </div>
+
+  <div class="bg-white p-4 rounded shadow cursor-pointer stat-card" data-type="past">
+    <div class="text-sm text-gray-500">Past Events</div>
+    <div class="text-2xl font-bold" id="past-events">{{ past_events_count }}</div>
+  </div>
+</div>
+
+<div class="bg-white p-4 rounded shadow mb-6">
+  <h2 class="font-semibold mb-2">Today's Events</h2>
+  <div id="today-events-list">
+    {% if todays_events %}
+      <ul>
+        {% for ev in todays_events %}
+        <li class="py-2 border-b">
+          <strong>{{ ev.name }}</strong> — {{ ev.time }} • {{ ev.location }} • <span class="text-sm text-gray-600">{{ ev.participants.count }} participants</span>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-gray-600">No events today.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="bg-white p-4 rounded shadow">
+  <h2 class="font-semibold mb-2">Filtered Events</h2>
+  <div id="filtered-events">
+    <p class="text-gray-600">Click a stat card above to dynamically load events for that category (All / Upcoming / Past).</p>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.stat-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const type = card.dataset.type;
+    let param = 'all';
+    if (type === 'all-events') param = 'all';
+    else if (type === 'all') param = 'today';
+    else param = type;
+
+    fetch(`{% url 'events:dashboard_data' %}?type=${param}`)
+      .then(res => res.json())
+      .then(data => {
+        const container = document.getElementById('filtered-events');
+        if (!data.events.length) {
+          container.innerHTML = '<p class="text-gray-600">No events for this selection.</p>';
+          return;
+        }
+        const html = ['<ul>'];
+        data.events.forEach(ev => {
+          html.push(`<li class="py-2 border-b"><strong>${ev.name}</strong> — ${ev.date} ${ev.time} • ${ev.location} • <span class="text-sm text-gray-600">${ev.participants_count} participants</span></li>`);
+        });
+        html.push('</ul>');
+        container.innerHTML = html.join('');
+      });
+  });
+});
+</script>
+{% endblock %}
