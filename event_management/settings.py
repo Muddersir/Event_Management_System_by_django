@@ -65,7 +65,7 @@ DATABASES = {
     'default': dj_database_url.config(
         
         default='postgresql://event_manager_db_ieon_user:RqzpJj0ALztlxeHuI5Lo20OpTpBBka9i@dpg-d4mp5uodl3ps73e91hag-a.oregon-postgres.render.com/event_manager_db_ieon',
-        conn_max_age=600
+       conn_max_age=600
     )
 }
 AUTH_PASSWORD_VALIDATORS = []
