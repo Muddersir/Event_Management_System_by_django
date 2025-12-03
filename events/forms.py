@@ -1,28 +1,12 @@
 from django import forms
-from .models import Event, Participant, Category
-
-class DateInput(forms.DateInput):
-    input_type = "date"
-
-class TimeInput(forms.TimeInput):
-    input_type = "time"
+from .models import Event
+from django.forms import DateInput, TimeInput
 
 class EventForm(forms.ModelForm):
     class Meta:
         model = Event
-        fields = ["name", "description", "date", "time", "location", "category", "participants"]
+        fields = ["name", "description", "date", "time", "location", "category", "image"]
         widgets = {
-            "date": DateInput(),
-            "time": TimeInput(),
-            "participants": forms.CheckboxSelectMultiple(),
+            "date": DateInput(attrs={"type": "date"}),
+            "time": TimeInput(attrs={"type": "time"}),
         }
-
-class ParticipantForm(forms.ModelForm):
-    class Meta:
-        model = Participant
-        fields = ["name", "email"]
-
-class CategoryForm(forms.ModelForm):
-    class Meta:
-        model = Category
-        fields = ["name", "description"]

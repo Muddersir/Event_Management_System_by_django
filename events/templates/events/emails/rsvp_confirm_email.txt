@@ -1,0 +1,5 @@
+Hello {{ user.get_full_name|default:user.username }},
+
+Your RSVP for the event "{{ event.name }}" on {{ event.date }} at {{ event.time }} is confirmed.
+
+Thank you.

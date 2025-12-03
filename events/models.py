@@ -1,5 +1,9 @@
 from django.db import models
+from django.conf import settings
+from django.utils import timezone
 
+def default_event_image():
+    return "default-event.jpg"
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -15,7 +19,9 @@ class Event(models.Model):
     time = models.TimeField()
     location = models.CharField(max_length=255)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name="events")
-    participants = models.ManyToManyField("Participant", related_name="events", blank=True)
+    image = models.ImageField(upload_to="events/", default=default_event_image)
+    attendees = models.ManyToManyField(settings.AUTH_USER_MODEL, through="RSVP", related_name="rsvp_events", blank=True)
+    
 
     class Meta:
         ordering = ["date", "time"]
@@ -24,10 +30,14 @@ class Event(models.Model):
         return f"{self.name} ({self.date})"
 
 
-class Participant(models.Model):
-    name = models.CharField(max_length=150)
-    email = models.EmailField()
-    # events relationship defined in Event.participants M2M
+class RSVP(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rsvps")
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="rsvps")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("user", "event")
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.name} <{self.email}>"
+        return f"{self.user.username} -> {self.event.name}"

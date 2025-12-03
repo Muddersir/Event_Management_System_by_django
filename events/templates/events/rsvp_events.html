@@ -1,0 +1,16 @@
+{% load static %}
+{% extends "events/base.html" %}
+{% block content %}
+<div class="bg-white p-6 rounded shadow">
+  <h1 class="text-2xl font-semibold mb-4">My RSVPs</h1>
+  <ul>
+    {% for r in rsvps %}
+      <li class="py-2 border-b">
+        <strong>{{ r.event.name }}</strong> — {{ r.event.date }} {{ r.event.time }} • {{ r.event.location }}
+      </li>
+    {% empty %}
+      <li class="text-gray-600">You have no RSVPs.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

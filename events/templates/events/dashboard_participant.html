@@ -1,0 +1,29 @@
+
+{% extends "events/base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-semibold">My Dashboard</h1>
+  <div>
+    <a href="{% url 'events:my_rsvps' %}" class="bg-indigo-600 text-white px-3 py-2 rounded">My RSVPs</a>
+  </div>
+</div>
+
+<div class="bg-white p-4 rounded shadow mb-6">
+  <h2 class="font-semibold mb-2">Events You've RSVP'd To</h2>
+  <ul>
+    {% for r in rsvps %}
+      <li class="py-2 border-b">
+        <a href="{% url 'events:event_detail' r.event.pk %}" class="font-semibold text-indigo-700">{{ r.event.name }}</a>
+        <div class="text-sm text-gray-600">{{ r.event.date }} • {{ r.event.location }}</div>
+      </li>
+    {% empty %}
+      <li class="text-gray-600">You have not RSVP'd to any events yet.</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<div class="bg-white p-4 rounded shadow">
+  <h2 class="font-semibold mb-2">Browse Events</h2>
+  <p class="text-gray-600">Go to the <a href="{% url 'events:event_list' %}" class="text-indigo-600">Events</a> page to find more events and RSVP.</p>
+</div>
+{% endblock %}

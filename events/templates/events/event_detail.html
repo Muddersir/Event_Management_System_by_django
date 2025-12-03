@@ -1,4 +1,5 @@
 
+{% load static %}
 {% extends "events/base.html" %}
 {% block content %}
 <div class="bg-white p-6 rounded shadow">
@@ -9,8 +10,12 @@
       <div class="mt-2">Category: <span class="font-medium">{{ event.category.name if event.category else "—" }}</span></div>
     </div>
     <div>
-      <a href="{% url 'events:event_update' event.pk %}" class="text-indigo-600 mr-2">Edit</a>
-      <a href="{% url 'events:event_delete' event.pk %}" class="text-red-600">Delete</a>
+      {% if user.is_authenticated and (user.is_superuser or user.groups.all|length) %}
+        {% if user.groups.filter(name="Organizer").exists or user.is_superuser %}
+          <a href="{% url 'events:event_update' event.pk %}" class="text-indigo-600 mr-2">Edit</a>
+          <a href="{% url 'events:event_delete' event.pk %}" class="text-red-600">Delete</a>
+        {% endif %}
+      {% endif %}
     </div>
   </div>
 
@@ -21,15 +26,31 @@
     <p class="text-gray-700">{{ event.description|default:"No description." }}</p>
   </div>
 
-  <div>
-    <h2 class="font-semibold">Participants ({{ event.participants.count }})</h2>
-    <ul class="mt-2">
-      {% for p in event.participants.all %}
-        <li class="py-1 border-b">{{ p.name }} — <span class="text-sm text-gray-600">{{ p.email }}</span></li>
-      {% empty %}
-        <li class="text-gray-600">No participants yet.</li>
-      {% endfor %}
-    </ul>
+  <div class="mb-4 flex gap-4">
+    <img src="{{ event.image.url }}" alt="event image" class="w-48 h-32 object-cover rounded">
+    <div>
+      <h3 class="font-semibold">Participants ({{ event.attendees.count }})</h3>
+      <ul class="mt-2">
+        {% for r in event.rsvps.all %}
+          <li class="py-1 border-b">{{ r.user.get_full_name|default:r.user.username }} — <span class="text-sm text-gray-600">{{ r.user.email }}</span></li>
+        {% empty %}
+          <li class="text-gray-600">No RSVPs yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
   </div>
+
+  {% if user.is_authenticated %}
+    {% if user.groups.filter(name="Participant").exists %}
+      <form method="post" action="{% url 'events:event_rsvp' event.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">RSVP</button>
+      </form>
+    {% else %}
+      <p class="text-sm text-gray-600">Only participants may RSVP to events.</p>
+    {% endif %}
+  {% else %}
+    <p><a href="{% url 'accounts:login' %}" class="text-indigo-600">Login</a> to RSVP.</p>
+  {% endif %}
 </div>
 {% endblock %}

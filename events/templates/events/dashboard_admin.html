@@ -1,0 +1,68 @@
+
+{% extends "events/base.html" %}
+{% load group_tags %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-semibold">Admin Dashboard</h1>
+  <div>
+    <a href="{% url 'admin:index' %}" class="bg-gray-800 text-white px-3 py-2 rounded">Django Admin</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white p-4 rounded shadow">
+    <div class="text-sm text-gray-500">Total Users</div>
+    <div class="text-2xl font-bold">{{ total_users }}</div>
+  </div>
+  <div class="bg-white p-4 rounded shadow">
+    <div class="text-sm text-gray-500">Total Events</div>
+    <div class="text-2xl font-bold">{{ total_events }}</div>
+  </div>
+  <div class="bg-white p-4 rounded shadow">
+    <div class="text-sm text-gray-500">Upcoming Events</div>
+    <div class="text-2xl font-bold">{{ upcoming }}</div>
+  </div>
+  <div class="bg-white p-4 rounded shadow">
+    <div class="text-sm text-gray-500">Past Events</div>
+    <div class="text-2xl font-bold">{{ past }}</div>
+  </div>
+</div>
+
+<div class="bg-white p-4 rounded shadow mb-6">
+  <h2 class="font-semibold mb-2">Recent Events</h2>
+  <table class="w-full text-left">
+    <thead class="text-sm text-gray-600 border-b">
+      <tr>
+        <th class="py-2">Name</th>
+        <th class="py-2">Date</th>
+        <th class="py-2">Category</th>
+        <th class="py-2">RSVPs</th>
+        <th class="py-2">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ev in events %}
+      <tr class="border-b">
+        <td class="py-2">{{ ev.name }}</td>
+        <td class="py-2">{{ ev.date }} {{ ev.time }}</td>
+        <td class="py-2">
+          {% if ev.category %}
+            {{ ev.category.name }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td class="py-2">{{ ev.rsvps.count }}</td>
+        <td class="py-2">
+          <a href="{% url 'events:event_detail' ev.pk %}" class="text-indigo-600 mr-2">View</a>
+          <a href="{% url 'events:event_update' ev.pk %}" class="text-indigo-600 mr-2">Edit</a>
+          <a href="{% url 'events:event_delete' ev.pk %}" class="text-red-600">Delete</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td class="py-2 text-gray-600" colspan="5">No events yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

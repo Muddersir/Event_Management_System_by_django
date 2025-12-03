@@ -1,0 +1,6 @@
+Hello,
+
+A new RSVP has been made for "{{ event.name }}" by {{ user.get_full_name|default:user.username }} ({{ user.email }}).
+
+Regards,
+Event Management System

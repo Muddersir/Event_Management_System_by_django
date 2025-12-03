@@ -1,0 +1,9 @@
+Subject: Activate your account
+
+Hello {{ user.username }},
+
+Thanks for signing up. Please activate your account by clicking the link below:
+
+{{ request.scheme|default:"http" }}://{{ request.get_host }}{% url 'accounts:activate' uid=uid token=token %}
+
+If you didn't sign up, ignore this email.

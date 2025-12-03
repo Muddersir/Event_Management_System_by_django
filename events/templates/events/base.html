@@ -1,44 +1,127 @@
 
 {% load static %}
+{% load group_tags %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Event Manager</title>
-  <!-- Tailwind CDN for quick setup -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>{% block title %}Event Management{% endblock %}</title>
+
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Tailwind CDN for development; replace with compiled CSS in production -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Optional project styles -->
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
-<body class="bg-gray-70 text-gray-800">
- <nav class="bg-white shadow">
-  <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
-    <a href="{% url 'events:event_list' %}" class="text-2xl font-bold text-gray-900 hover:text-blue-900">
-      Event Manager
-    </a>
+  <!-- NAVBAR -->
+  <header class="bg-white shadow">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center space-x-4">
+          <a href="{% url 'events:event_list' %}" class="text-xl font-semibold text-indigo-600">Event Manager</a>
+          <nav class="hidden md:flex space-x-2">
+            <a href="{% url 'events:event_list' %}" class="px-3 py-2 rounded text-gray-700 hover:bg-gray-100">Events</a>
+            <a href="{% url 'events:category_list' %}" class="px-3 py-2 rounded text-gray-700 hover:bg-gray-100">Categories</a>
+            {% if user.is_authenticated and user|has_group:"Participant" %}
+              <a href="{% url 'events:my_rsvps' %}" class="px-3 py-2 rounded text-gray-700 hover:bg-gray-100">My RSVPs</a>
+            {% endif %}
+          </nav>
+        </div>
 
-    <div class="space-x-6">
+        <div class="flex items-center space-x-4">
+          {% if user.is_authenticated %}
+            <!-- role-specific dashboard link -->
+            {% if user.is_superuser or user|has_group:"Admin" %}
+              <a href="{% url 'events:dashboard_admin' %}" class="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">Admin Dashboard</a>
+            {% elif user|has_group:"Organizer" %}
+              <a href="{% url 'events:dashboard_organizer' %}" class="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">Organizer Dashboard</a>
+            {% elif user|has_group:"Participant" %}
+              <a href="{% url 'events:dashboard_participant' %}" class="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">My Dashboard</a>
+            {% endif %}
 
-      <a href="{% url 'events:event_list' %}" class="text-blue-600 hover:text-blue-800">Events</a>
+            {% if user.is_superuser or user|has_group:"Organizer" %}
+              <a href="{% url 'events:event_create' %}" class="ml-2 bg-indigo-600 text-white px-3 py-2 rounded">Create Event</a>
+            {% endif %}
 
-      <a href="{% url 'events:participant_list' %}" class="text-blue-600 hover:text-blue-800">Participants</a>
+            <div class="ml-4 relative" x-data="{ open: false }">
+              <button class="flex items-center space-x-2 px-3 py-2 rounded hover:bg-gray-100" id="user-menu-button">
+                <span class="text-sm font-medium">{{ user.get_full_name|default:user.username }}</span>
+                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                     xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                     d="M19 9l-7 7-7-7"></path></svg>
+              </button>
+              <!-- simple dropdown -->
+              <div class="absolute right-0 mt-2 w-48 bg-white border rounded shadow-sm z-20 hidden" id="user-dropdown">
+                <div class="py-1">
+                  <a href="#" class="block px-4 py-2 text-sm text-gray-700">Profile</a>
+                  <form method="post" action="{% url 'accounts:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700">Logout</button>
+                  </form>
+                </div>
+              </div>
+            </div>
 
-      <a href="{% url 'events:category_list' %}" class="text-blue-600 hover:text-blue-800">Categories</a>
+            <script>
+              // small JS to toggle dropdown without external libs
+              document.addEventListener('click', function (e) {
+                const btn = document.getElementById('user-menu-button');
+                const dd = document.getElementById('user-dropdown');
+                if (!btn) return;
+                if (btn.contains(e.target)) {
+                  dd.classList.toggle('hidden');
+                } else {
+                  if (!dd.classList.contains('hidden')) dd.classList.add('hidden');
+                }
+              });
+            </script>
 
-      <a href="{% url 'events:dashboard' %}" class="text-blue-600 hover:text-blue-800">Dashboard</a>
-
+          {% else %}
+            <a href="{% url 'accounts:login' %}" class="px-3 py-2 rounded text-gray-700 hover:bg-gray-100">Login</a>
+            <a href="{% url 'accounts:signup' %}" class="ml-2 bg-indigo-600 text-white px-3 py-2 rounded">Sign up</a>
+          {% endif %}
+        </div>
+      </div>
     </div>
+  </header>
+
+  <!-- FLASH MESSAGES -->
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+    {% if messages %}
+      <div class="space-y-2">
+        {% for message in messages %}
+          <div class="p-3 rounded border-l-4
+                      {% if message.tags == 'error' %}border-red-500 bg-red-50 text-red-800
+                      {% elif message.tags == 'warning' %}border-yellow-400 bg-yellow-50 text-yellow-800
+                      {% elif message.tags == 'success' %}border-green-500 bg-green-50 text-green-800
+                      {% else %}border-indigo-500 bg-indigo-50 text-indigo-800{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
-</nav>
 
-
-  <main class="container mx-auto px-4 py-6">
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-6">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="text-center py-6 text-sm text-gray-500">
-    Event Management System • Built with Django & Tailwind
+  <footer class="bg-white border-t mt-8">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 text-sm text-gray-600">
+      <div class="flex flex-col md:flex-row md:justify-between items-center">
+        <div>© {{ now|date:"Y" }} Event Management System</div>
+        <div class="mt-2 md:mt-0">
+          <a href="{% url 'events:event_list' %}" class="text-gray-600 hover:text-gray-800">Events</a>
+          <span class="mx-2">·</span>
+          <a href="#" class="text-gray-600 hover:text-gray-800">Help</a>
+        </div>
+      </div>
+    </div>
   </footer>
+
 </body>
 </html>
