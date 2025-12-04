@@ -64,7 +64,7 @@ WSGI_APPLICATION = "event_management.wsgi.application"
 DATABASES = {
     'default': dj_database_url.config(
         
-        default='postgresql://event_manager_db_ieon_user:RqzpJj0ALztlxeHuI5Lo20OpTpBBka9i@dpg-d4mp5uodl3ps73e91hag-a.oregon-postgres.render.com/event_manager_db_ieon',
+        default='postgresql://event_management_db_m1my_user:SvEWtuxvgNf5ouLgNELtBbn2Vc6H0APf@dpg-d4omgt3e5dus73ccc9l0-a.oregon-postgres.render.com/event_management_db_m1my',
        conn_max_age=600
     )
 }
