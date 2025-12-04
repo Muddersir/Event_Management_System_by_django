@@ -2,70 +2,19 @@
 {% block content %}
 <div class="flex justify-between items-center mb-4">
   <h1 class="text-2xl font-semibold">Events</h1>
-  <a href="{% url 'events:event_create' %}" class="bg-indigo-600 text-white px-4 py-2 rounded">Add Event</a>
-</div>
-
-<form method="get" class="bg-white p-4 rounded shadow mb-4 grid grid-cols-1 md:grid-cols-6 gap-2">
-  <input type="text" name="q" value="{{ q }}" placeholder="Search by name or location" class="col-span-2 p-2 border rounded" />
-  <select name="category" class="p-2 border rounded">
-    <option value="">All Categories</option>
-    {% for cat in categories %}
-      <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
-    {% endfor %}
-  </select>
-  <input type="date" name="start_date" value="{{ start_date }}" class="p-2 border rounded" />
-  <input type="date" name="end_date" value="{{ end_date }}" class="p-2 border rounded" />
-  <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded">Filter</button>
-</form>
-
-<div class="mb-2">
-  <strong>Total participant associations across events:</strong> {{ total_participants_assoc }}
+  {% if user.is_authenticated and can_add_event %}
+    <a href="{% url 'events:event_create' %}" class="bg-indigo-600 text-white px-4 py-2 rounded">Add Event</a>
+  {% endif %}
 </div>
 
 <div class="grid gap-4">
   {% for event in events %}
-  <div class="bg-white p-4 rounded shadow flex flex-col md:flex-row md:items-center md:justify-between">
-    <div>
-      <a href="{% url 'events:event_detail' event.pk %}" class="text-lg font-semibold text-indigo-700">{{ event.name }}</a>
-      <div class="text-sm text-gray-600">{{ event.date }} at {{ event.time }} • {{ event.location }}</div>
-      <div class="text-sm mt-1">Category:
-        <span class="font-medium">
-          {% if event.category %}
-            {{ event.category.name }}
-          {% else %}
-            —
-          {% endif %}
-        </span>
-      </div>
-    </div>
-    <div class="mt-3 md:mt-0 text-right">
-      <div class="text-sm text-gray-500">Participants: <span class="font-bold">{{ event.participant_count }}</span></div>
-      <div class="mt-2">
-        <a href="{% url 'events:event_update' event.pk %}" class="text-sm text-indigo-600 mr-2">Edit</a>
-        <a href="{% url 'events:event_delete' event.pk %}" class="text-sm text-red-600">Delete</a>
-      </div>
-    </div>
+  <div class="bg-white p-4 rounded shadow">
+    <a href="{% url 'events:event_detail' event.pk %}" class="text-lg font-semibold">{{ event.name }}</a>
+    <div class="text-sm text-gray-600">{{ event.date }} • {{ event.location }}</div>
   </div>
   {% empty %}
-    <p class="text-gray-600">No events found.</p>
+    <p class="text-gray-600">No events yet.</p>
   {% endfor %}
-</div>
-
-<div class="mt-6">
-  {% if is_paginated %}
-    <div class="flex justify-between items-center">
-      <div>
-        {% if page_obj.has_previous %}
-          <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="px-3 py-1 bg-gray-200 rounded">Previous</a>
-        {% endif %}
-      </div>
-      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-      <div>
-        {% if page_obj.has_next %}
-          <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="px-3 py-1 bg-gray-200 rounded">Next</a>
-        {% endif %}
-      </div>
-    </div>
-  {% endif %}
 </div>
 {% endblock %}

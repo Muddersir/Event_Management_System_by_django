@@ -1,52 +1,41 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth import login
-from django.contrib import messages
-from django.contrib.auth.models import Group, User
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
-from django.template.loader import render_to_string
-from django.conf import settings
-from django.http import HttpResponse
-from django.contrib.auth.tokens import default_token_generator
-from .forms import SignupForm, LoginForm
-from .tokens import account_activation_token
-from django import forms
+from django.urls import reverse_lazy
+from django.views import generic
+from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import PasswordChangeView
+from .forms import CustomUserCreationForm, ProfileUpdateForm, CustomPasswordChangeForm
 
-# We provide a wrapper around AuthenticationForm to prevent unactivated users
-class CustomLoginForm(LoginForm):
-    def confirm_login_allowed(self, user):
-        if not user.is_active:
-            raise forms.ValidationError("Account is not activated. Check your email.", code="inactive")
+User = get_user_model()
 
-def signup_view(request):
-    if request.method == "POST":
-        form = SignupForm(request.POST)
-        if form.is_valid():
-            user = form.save(commit=False)
-            user.is_active = False  # must activate by email
-            user.save()
-            # assign default 'Participant' group
-            participant_group, _ = Group.objects.get_or_create(name="Participant")
-            user.groups.add(participant_group)
-            # activation email will be sent by accounts.signals (post_save)
-            messages.success(request, "Account created. Check your email to activate your account.")
-            return redirect("accounts:login")
-    else:
-        form = SignupForm()
-    return render(request, "accounts/signup.html", {"form": form})
+class SignUpView(generic.CreateView):
+    model = User
+    form_class = CustomUserCreationForm
+    template_name = "accounts/signup.html"
+    success_url = reverse_lazy("accounts:login")
 
+    def form_valid(self, form):
+        # New users are active by default here; if using email activation mark inactive and send email
+        response = super().form_valid(form)
+        return response
 
-def activate_account(request, uidb64, token):
-    try:
-        uid = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.get(pk=uid)
-    except Exception:
-        user = None
+class ProfileView(LoginRequiredMixin, generic.DetailView):
+    model = User
+    template_name = "accounts/profile.html"
+    context_object_name = "user_obj"
 
-    if user and default_token_generator.check_token(user, token):
-        user.is_active = True
-        user.save()
-        messages.success(request, "Your account has been activated. You can now log in.")
-        return redirect("accounts:login")
-    else:
-        return render(request, "accounts/activate_account.html", {"valid": False})
+    def get_object(self):
+        return self.request.user
+
+class ProfileUpdateView(LoginRequiredMixin, generic.UpdateView):
+    model = User
+    form_class = ProfileUpdateForm
+    template_name = "accounts/profile_edit.html"
+    success_url = reverse_lazy("accounts:profile")
+
+    def get_object(self):
+        return self.request.user
+
+class CustomPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
+    form_class = CustomPasswordChangeForm
+    template_name = "accounts/password_change.html"
+    success_url = reverse_lazy("accounts:password_change_done")

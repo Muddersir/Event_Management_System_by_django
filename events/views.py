@@ -1,44 +1,28 @@
-from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views import generic
-from django.utils.decorators import method_decorator
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Count, Q
-from django.http import JsonResponse, HttpResponseForbidden
-from django.contrib.auth import get_user_model
-from django import forms
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.models import Group
 from django.utils import timezone
 
 from .models import Event, Category, RSVP
 from .forms import EventForm
 
-User = get_user_model()
+# Role check mixin
+class GroupRequiredMixin(UserPassesTestMixin):
+    group_names = []
 
-# Role helper and decorator
-def role_required(*group_names):
-    """
-    Decorator factory: allow access only to users in any of the given groups or superusers.
-    """
-    def decorator(view_func):
-        def _wrapped_view(request, *args, **kwargs):
-            if not request.user.is_authenticated:
-                return redirect("accounts:login")
-            if request.user.is_superuser:
-                return view_func(request, *args, **kwargs)
-            user_groups = request.user.groups.values_list("name", flat=True)
-            if any(g in group_names for g in user_groups):
-                return view_func(request, *args, **kwargs)
-            return HttpResponseForbidden("You do not have permission to access this page.")
-        return _wrapped_view
-    return decorator
+    def test_func(self):
+        user = self.request.user
+        if user.is_superuser:
+            return True
+        return any(user.groups.filter(name=g).exists() for g in self.group_names)
 
+    def handle_no_permission(self):
+        return redirect("accounts:login")
 
-# -------------------------
-# Events: List / Detail / CRUD
-# -------------------------
+# --- Events CBVs ---
 class EventListView(generic.ListView):
     model = Event
     template_name = "events/event_list.html"
@@ -63,19 +47,21 @@ class EventListView(generic.ListView):
         if end_date:
             qs = qs.filter(date__lte=end_date)
 
-        qs = qs.annotate(participant_count=Count("attendees", distinct=True))
-        return qs
+        return qs.annotate(participant_count=Count("attendees", distinct=True))
 
     def get_context_data(self, **kwargs):
+        """
+        Provide a boolean `can_add_event` to the template so we don't call
+        QuerySet methods or use parentheses inside template tags.
+        """
         ctx = super().get_context_data(**kwargs)
-        ctx["total_unique_participants"] = User.objects.filter(rsvps__isnull=False).distinct().count()
-        ctx["categories"] = Category.objects.all()
-        ctx["q"] = self.request.GET.get("q", "")
-        ctx["selected_category"] = self.request.GET.get("category", "")
-        ctx["start_date"] = self.request.GET.get("start_date", "")
-        ctx["end_date"] = self.request.GET.get("end_date", "")
+        user = self.request.user
+        can_add = False
+        if user.is_authenticated:
+            # Safe to call QuerySet methods here
+            can_add = user.is_superuser or user.groups.filter(name="Organizer").exists()
+        ctx["can_add_event"] = can_add
         return ctx
-
 
 class EventDetailView(generic.DetailView):
     model = Event
@@ -85,229 +71,111 @@ class EventDetailView(generic.DetailView):
     def get_queryset(self):
         return Event.objects.select_related("category").prefetch_related("rsvps__user")
 
-
-@method_decorator(role_required("Organizer", "Admin"), name="dispatch")
-class EventCreateView(generic.CreateView):
+class EventCreateView(LoginRequiredMixin, GroupRequiredMixin, generic.CreateView):
+    group_names = ["Organizer", "Admin"]
     model = Event
     form_class = EventForm
     template_name = "events/event_form.html"
     success_url = reverse_lazy("events:event_list")
 
-
-@method_decorator(role_required("Organizer", "Admin"), name="dispatch")
-class EventUpdateView(generic.UpdateView):
+class EventUpdateView(LoginRequiredMixin, GroupRequiredMixin, generic.UpdateView):
+    group_names = ["Organizer", "Admin"]
     model = Event
     form_class = EventForm
     template_name = "events/event_form.html"
     success_url = reverse_lazy("events:event_list")
 
-
-@method_decorator(role_required("Organizer", "Admin"), name="dispatch")
-class EventDeleteView(generic.DeleteView):
+class EventDeleteView(LoginRequiredMixin, GroupRequiredMixin, generic.DeleteView):
+    group_names = ["Organizer", "Admin"]
     model = Event
     template_name = "events/event_delete.html"
     success_url = reverse_lazy("events:event_list")
 
-
-# -------------------------
-# Participant CRUD (manage users in Participant group)
-# Admin-only pages to manage Participant users.
-# These views are provided so urls referencing participant_* exist and work.
-# -------------------------
-class ParticipantCreateForm(UserCreationForm):
-    email = forms.EmailField(required=True)
-    first_name = forms.CharField(required=False)
-    last_name = forms.CharField(required=False)
-
-    class Meta:
-        model = User
-        fields = ("username", "email", "first_name", "last_name", "password1", "password2")
-
-
-class ParticipantUpdateForm(forms.ModelForm):
-    class Meta:
-        model = User
-        fields = ("username", "email", "first_name", "last_name", "is_active")
-
-
-@method_decorator(role_required("Admin"), name="dispatch")
-class ParticipantListView(generic.ListView):
-    model = User
-    template_name = "events/participant_list.html"
-    context_object_name = "participants"
-
-    def get_queryset(self):
-        return User.objects.filter(groups__name="Participant").order_by("username")
-
-
-@method_decorator(role_required("Admin"), name="dispatch")
-class ParticipantCreateView(generic.CreateView):
-    model = User
-    form_class = ParticipantCreateForm
-    template_name = "events/participant_form.html"
-    success_url = reverse_lazy("events:participant_list")
-
-    def form_valid(self, form):
-        user = form.save(commit=False)
-        # By default, allow participant users to login; adjust is_active if needed
-        user.is_active = True
-        user.save()
-        participant_group, _ = Group.objects.get_or_create(name="Participant")
-        user.groups.add(participant_group)
-        messages.success(self.request, "Participant user created.")
-        return super().form_valid(form)
-
-
-@method_decorator(role_required("Admin"), name="dispatch")
-class ParticipantUpdateView(generic.UpdateView):
-    model = User
-    form_class = ParticipantUpdateForm
-    template_name = "events/participant_form.html"
-    success_url = reverse_lazy("events:participant_list")
-
-
-@method_decorator(role_required("Admin"), name="dispatch")
-class ParticipantDeleteView(generic.DeleteView):
-    model = User
-    template_name = "events/participant_delete.html"
-    success_url = reverse_lazy("events:participant_list")
-
-    def get_queryset(self):
-        # limit deletion to users in Participant group to avoid accidental admin deletions
-        return User.objects.filter(groups__name="Participant")
-
-
-# -------------------------
-# Categories: CRUD (organizer/admin)
-# -------------------------
-@method_decorator(role_required("Organizer", "Admin"), name="dispatch")
-class CategoryListView(generic.ListView):
+# Category CBVs
+class CategoryListView(LoginRequiredMixin, GroupRequiredMixin, generic.ListView):
+    group_names = ["Organizer", "Admin"]
     model = Category
     template_name = "events/category_list.html"
     context_object_name = "categories"
 
-
-@method_decorator(role_required("Organizer", "Admin"), name="dispatch")
-class CategoryCreateView(generic.CreateView):
+class CategoryCreateView(LoginRequiredMixin, GroupRequiredMixin, generic.CreateView):
+    group_names = ["Organizer", "Admin"]
     model = Category
     fields = ["name", "description"]
     template_name = "events/category_form.html"
     success_url = reverse_lazy("events:category_list")
 
-
-@method_decorator(role_required("Organizer", "Admin"), name="dispatch")
-class CategoryUpdateView(generic.UpdateView):
+class CategoryUpdateView(LoginRequiredMixin, GroupRequiredMixin, generic.UpdateView):
+    group_names = ["Organizer", "Admin"]
     model = Category
     fields = ["name", "description"]
     template_name = "events/category_form.html"
     success_url = reverse_lazy("events:category_list")
 
-
-@method_decorator(role_required("Organizer", "Admin"), name="dispatch")
-class CategoryDeleteView(generic.DeleteView):
+class CategoryDeleteView(LoginRequiredMixin, GroupRequiredMixin, generic.DeleteView):
+    group_names = ["Organizer", "Admin"]
     model = Category
     template_name = "events/category_delete.html"
     success_url = reverse_lazy("events:category_list")
 
+# RSVP as a minimal CBV (post only)
+from django.views import View
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 
-# -------------------------
-# RSVP and user-specific views
-# -------------------------
-@login_required
-def rsvp_view(request, pk):
-    """
-    Participant users can RSVP to an event. RSVP model uses unique_together to prevent duplicates.
-    """
-    event = get_object_or_404(Event, pk=pk)
-    user = request.user
-    # Only users in Participant group (or superuser) allowed
-    if not (user.is_superuser or user.groups.filter(name="Participant").exists()):
-        return HttpResponseForbidden("Only participants can RSVP to events.")
-
-    if request.method == "POST":
+@method_decorator(login_required, name="dispatch")
+class RSVPView(View):
+    def post(self, request, pk):
+        event = get_object_or_404(Event, pk=pk)
+        user = request.user
+        if not (user.is_superuser or user.groups.filter(name="Participant").exists()):
+            messages.error(request, "Only participants can RSVP.")
+            return redirect("events:event_detail", pk=pk)
         rsvp, created = RSVP.objects.get_or_create(user=user, event=event)
         if created:
-            messages.success(request, "RSVP confirmed. A confirmation email will be sent.")
+            messages.success(request, "RSVP successful.")
         else:
-            messages.info(request, "You have already RSVP'd to this event.")
+            messages.info(request, "You already RSVP'd.")
         return redirect("events:event_detail", pk=pk)
 
-    return HttpResponseForbidden("Invalid method")
+# My RSVPs (participant dashboard)
+class MyRSVPsView(LoginRequiredMixin, generic.ListView):
+    template_name = "events/rsvp_events.html"
+    context_object_name = "rsvps"
 
+    def get_queryset(self):
+        return self.request.user.rsvps.select_related("event__category").all()
 
-@login_required
-def my_rsvps(request):
-    """
-    Show RSVPs for the logged-in user (participant dashboard).
-    """
-    rsvps = request.user.rsvps.select_related("event__category").all()
-    return render(request, "events/rsvp_events.html", {"rsvps": rsvps})
+# dashboards can remain CBVs as well
+class AdminDashboardView(LoginRequiredMixin, GroupRequiredMixin, generic.TemplateView):
+    group_names = ["Admin"]
+    template_name = "events/dashboard_admin.html"
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        ctx["total_users"] = __import__("django.contrib.auth").contrib.auth.get_user_model().objects.count()
+        ctx["total_events"] = Event.objects.count()
+        ctx["upcoming"] = Event.objects.filter(date__gte=today).count()
+        ctx["past"] = Event.objects.filter(date__lt=today).count()
+        ctx["events"] = Event.objects.select_related("category").prefetch_related("rsvps__user").all()[:50]
+        return ctx
 
-# -------------------------
-# Dashboards
-# -------------------------
-@role_required("Admin")
-def admin_dashboard(request):
-    today = timezone.localdate()
-    total_users = User.objects.count()
-    total_events = Event.objects.count()
-    upcoming = Event.objects.filter(date__gte=today).count()
-    past = Event.objects.filter(date__lt=today).count()
-    events = Event.objects.select_related("category").prefetch_related("rsvps__user").all()[:50]
-    return render(request, "events/dashboard_admin.html", {
-        "total_users": total_users,
-        "total_events": total_events,
-        "upcoming": upcoming,
-        "past": past,
-        "events": events,
-    })
+class OrganizerDashboardView(LoginRequiredMixin, GroupRequiredMixin, generic.TemplateView):
+    group_names = ["Organizer"]
+    template_name = "events/dashboard_organizer.html"
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["events"] = Event.objects.select_related("category").prefetch_related("rsvps__user").all()
+        ctx["categories"] = Category.objects.all()
+        return ctx
 
-@role_required("Organizer")
-def organizer_dashboard(request):
-    events = Event.objects.select_related("category").prefetch_related("rsvps__user").all()
-    categories = Category.objects.all()
-    return render(request, "events/dashboard_organizer.html", {
-        "events": events,
-        "categories": categories,
-    })
+class ParticipantDashboardView(LoginRequiredMixin, GroupRequiredMixin, generic.TemplateView):
+    group_names = ["Participant"]
+    template_name = "events/dashboard_participant.html"
 
-
-@role_required("Participant")
-def participant_dashboard(request):
-    rsvps = request.user.rsvps.select_related("event__category").all()
-    return render(request, "events/dashboard_participant.html", {"rsvps": rsvps})
-
-
-# -------------------------
-# JSON endpoint for interactive dashboard (optional)
-# -------------------------
-@login_required
-def dashboard_data(request):
-    """
-    Returns JSON list of events according to type:
-      ?type=all | upcoming | past | today
-    """
-    typ = request.GET.get("type", "all")
-    today = timezone.localdate()
-    qs = Event.objects.select_related("category").prefetch_related("rsvps__user")
-    if typ == "upcoming":
-        qs = qs.filter(date__gte=today)
-    elif typ == "past":
-        qs = qs.filter(date__lt=today)
-    elif typ == "today":
-        qs = qs.filter(date=today)
-
-    data = []
-    for ev in qs.order_by("date", "time")[:50]:
-        data.append({
-            "id": ev.id,
-            "name": ev.name,
-            "date": ev.date.isoformat(),
-            "time": ev.time.isoformat() if ev.time else "",
-            "location": ev.location,
-            "category": ev.category.name if ev.category else None,
-            "participants_count": ev.rsvps.count(),
-        })
-    return JsonResponse({"events": data})
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["rsvps"] = self.request.user.rsvps.select_related("event__category").all()
+        return ctx

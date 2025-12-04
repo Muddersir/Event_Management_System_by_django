@@ -1,0 +1,23 @@
+{% load static %}
+{% extends "events/base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
+  <div class="flex items-center gap-6">
+    {% if user.profile_image %}
+      <img src="{{ user.profile_image.url }}" alt="profile" class="w-24 h-24 rounded-full object-cover">
+    {% else %}
+      <img src="{% static 'images/default-user.png' %}" alt="profile" class="w-24 h-24 rounded-full object-cover">
+    {% endif %}
+    <div>
+      <h2 class="text-xl font-semibold">{{ user.get_full_name|default:user.username }}</h2>
+      <p class="text-sm text-gray-600">{{ user.email }}</p>
+      <p class="text-sm text-gray-600">{{ user.phone_number }}</p>
+      <div class="mt-3">
+        <a href="{% url 'accounts:profile_edit' %}" class="bg-indigo-600 text-white px-3 py-2 rounded">Edit Profile</a>
+        <a href="{% url 'accounts:password_change' %}" class="ml-2 bg-gray-200 px-3 py-2 rounded">Change Password</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
